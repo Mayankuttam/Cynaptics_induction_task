@@ -1,0 +1,186 @@
+import zipfile
+
+zip_file_path = '/content/New_Data.zip'
+try:
+    with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+        zip_ref.extractall('/content/')
+        print(f"Successfully extracted files from '{zip_file_path}' to /content/")
+except FileNotFoundError:
+    print(f"Error: File '{zip_file_path}' not found.")
+except zipfile.BadZipFile:
+    print(f"Error: Invalid zip file '{zip_file_path}'.")
+except Exception as e:
+    print(f"An unexpected error occurred: {e}")
+
+zip_file_path = '/content/induction-task.zip'
+try:
+    with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+        zip_ref.extractall('/content/')
+        print(f"Successfully extracted files from '{zip_file_path}' to /content/")
+except FileNotFoundError:
+    print(f"Error: File '{zip_file_path}' not found.")
+except zipfile.BadZipFile:
+    print(f"Error: Invalid zip file '{zip_file_path}'.")
+except Exception as e:
+    print(f"An unexpected error occurred: {e}")
+
+zip_file_path = '/content/induction-task-2025.zip'
+try:
+    with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+        zip_ref.extractall('/content/')
+        print(f"Successfully extracted files from '{zip_file_path}' to /content/")
+except FileNotFoundError:
+    print(f"Error: File '{zip_file_path}' not found.")
+except zipfile.BadZipFile:
+    print(f"Error: Invalid zip file '{zip_file_path}'.")
+
+except Exception as e:
+    print(f"An unexpected error occurred: {e}")
+from keras.utils import to_categorical
+from keras_preprocessing.image import load_img
+from keras.models import Sequential
+from keras.applications import MobileNetV2, ResNet152, VGG16, EfficientNetB0, InceptionV3
+from keras.layers import Dense, Conv2D, Dropout, Flatten, LeakyReLU, MaxPooling2D, BatchNormalization, GlobalAveragePooling2D
+import os
+from sklearn.preprocessing import LabelEncoder
+import pandas as pd
+import numpy as np
+from tqdm.notebook import tqdm
+from keras.regularizers import l2
+from keras.optimizers import Adam
+from keras.optimizers import RMSprop
+
+def createdataframe(dir):
+    image_paths = []
+    labels = []
+    for label in os.listdir(dir):
+        for imagename in os.listdir(os.path.join(dir, label)):
+            image_paths.append(os.path.join(dir, label, imagename))
+            labels.append(label)
+        print(label, "completed")
+    return image_paths, labels
+
+def extract_features(images):
+    features = []
+    for image in tqdm(images):
+        try:
+            img = load_img(image, target_size=(256, 256))
+            img = np.array(img)
+            features.append(img)
+        except Exception as e:
+            print(f"Error processing {image}: {e}")
+    features = np.array(features)
+    features = features.reshape(features.shape[0], 256, 256, 3)  # Reshape all images in one go
+    return features
+
+TRAIN_DIR1 = "/content/New_Data"
+TRAIN_DIR2 = "/content/Data/Train"
+
+import shutil
+checkpoint_path = '/content/New_Data/AI/.ipynb_checkpoints'
+
+if os.path.exists(checkpoint_path) and os.path.isdir(checkpoint_path):
+    shutil.rmtree(checkpoint_path)
+    print(f"Deleted: {checkpoint_path}")
+
+train1 = pd.DataFrame()
+train1['image'], train1['label'] = createdataframe(TRAIN_DIR1)
+
+train2 = pd.DataFrame()
+train2['image'], train2['label'] = createdataframe(TRAIN_DIR2)
+
+train = pd.concat([train1, train2], ignore_index=True)
+
+
+train_features = extract_features(train['image'])
+
+x_train = train_features / 255.0
+
+le = LabelEncoder()
+le.fit(train['label'])
+y_train = le.transform(train['label'])
+y_train = to_categorical(y_train, num_classes=2)
+
+model = Sequential()
+
+model.add(Conv2D(16, kernel_size=(3, 3), padding = 'valid', kernel_initializer='he_normal', activation='relu', input_shape=(256, 256, 3)))
+model.add(BatchNormalization())
+model.add(LeakyReLU(alpha=0.1))
+model.add(MaxPooling2D(pool_size=(2, 2), strides = 2, padding = 'valid'))
+
+
+model.add(Conv2D(64, kernel_size=(3, 3), padding = 'valid', kernel_initializer='he_normal', activation='relu'))
+model.add(BatchNormalization())
+model.add(LeakyReLU(alpha=0.1))
+model.add(MaxPooling2D(pool_size=(2, 2), strides = 2, padding = 'valid'))
+
+model.add(Conv2D(128, kernel_size=(3, 3), padding = 'valid', kernel_initializer='he_normal', activation='relu'))
+model.add(BatchNormalization())
+model.add(LeakyReLU(alpha=0.1))
+model.add(MaxPooling2D(pool_size=(2, 2), strides = 2, padding = 'valid'))
+
+model.add(Conv2D(256, kernel_size=(3, 3), padding = 'valid', kernel_initializer='he_normal', activation='relu'))
+model.add(BatchNormalization())
+model.add(LeakyReLU(alpha=0.1))
+model.add(MaxPooling2D(pool_size=(2, 2), strides = 2, padding = 'valid'))
+
+# model.add(Conv2D(512, kernel_size=(3, 3), padding = 'valid', activation='relu'))
+# model.add(BatchNormalization())
+# model.add(MaxPooling2D(pool_size=(2, 2), strides = 2, padding = 'valid'))
+
+model.add(Flatten())
+
+model.add(Dense(256, activation='relu', kernel_regularizer=l2(0.01)))
+model.add(BatchNormalization())
+model.add(Dropout(0.1))
+model.add(Dense(128, activation='relu'))
+model.add(BatchNormalization())
+model.add(Dropout(0.1))
+model.add(Dense(64, activation='relu'))
+model.add(BatchNormalization())
+model.add(Dropout(0.1))
+model.add(Dense(32, activation='relu'))
+model.add(BatchNormalization())
+model.add(Dropout(0.1))
+model.add(Dense(16, activation='relu'))
+model.add(BatchNormalization())
+model.add(Dropout(0.1))
+model.add(Dense(2, activation='softmax'))
+
+model.summary()
+
+optimizer = Adam(learning_rate=0.002)
+model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
+model.fit(x_train, y_train, batch_size = 32, epochs=30)
+
+MIXED_DIR = "/content/Test_Images"
+def prepare_mixed_dataset(dir):
+    image_paths = []
+    for imagename in os.listdir(dir):
+        image_paths.append(os.path.join(dir, imagename))
+    return image_paths
+
+mixed_images = prepare_mixed_dataset(MIXED_DIR)
+mixed_features = extract_features(mixed_images)
+x_mixed = mixed_features / 255.0
+mixed_predictions = model.predict(x_mixed )
+predicted_classes = np.argmax(mixed_predictions, axis =1)
+decoded_predictions = le.inverse_transform(predicted_classes)
+
+# image_ids = [os.path.basename(image) for image in mixed_images]
+image_ids = [os.path.splitext(os.path.basename(path))[0] for path in mixed_images]
+
+print(f"Number of images: {len(mixed_images)}")
+print(f"Number of predictions: {len(decoded_predictions)}")
+
+results = pd.DataFrame({
+    'Id': image_ids,
+    'Label': decoded_predictions
+})
+
+print(results)
+
+results.to_csv('predictions.csv', index=False)
+
+from google.colab import files
+files.download('predictions.csv')
